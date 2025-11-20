@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notas Minimalistas (Firebase)</title>
+    <!-- Carga de Tailwind CSS para el diseño minimalista y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de la fuente Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class', 
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Transición suave para el modo oscuro/claro */
+        body, .bg-card, input, textarea { transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+        .bg-card { background-color: #ffffff; }
+        .dark .bg-card { background-color: #1f2937; }
+        
+        /* Estilos para el scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #e0e7ff; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-track { background: #374151; }
+        ::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #4f46e5; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="container mx-auto max-w-4xl">
+        
+        <!-- CABECERA Y CONTROLES -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <h1 class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Minimal Notes</h1>
+            <div class="flex items-center space-x-4 w-full md:w-auto">
+                <input type="text" id="search-input" placeholder="Buscar notas..." 
+                       class="w-full md:w-64 p-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                
+                <button id="theme-toggle" title="Alternar tema" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                    <!-- Icono Sol (Light) / Luna (Dark) -->
+                    <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- PESTAÑAS -->
+        <div class="flex border-b border-gray-300 dark:border-gray-700 mb-6">
+            <button id="tab-private" data-view="private" class="flex-1 py-3 px-4 font-semibold text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 transition-colors">
+                🔒 Notas Privadas
+            </button>
+            <button id="tab-collab" data-view="collab" class="flex-1 py-3 px-4 font-semibold text-gray-500 dark:text-gray-400 border-b-2 border-transparent transition-colors">
+                🤝 Notas Colaborativas
+            </button>
+        </div>
+        
+        <!-- ETIQUETA DE USUARIO -->
+        <div class="mb-4 p-2 bg-indigo-50 dark:bg-gray-800 rounded-md text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
+            <span class="font-semibold">Tu ID de Usuario:</span>
+            <span id="user-id-display" class="text-indigo-600 dark:text-indigo-400">Cargando...</span>
+        </div>
+
+        <!-- FORMULARIO DE NUEVA NOTA -->
+        <div id="add-note-section" class="mb-8 p-6 bg-card rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-3">Crear Nueva Nota</h2>
+            <input type="text" id="note-title" placeholder="Título (Opcional)" 
+                   class="w-full p-3 mb-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base">
+            <textarea id="note-content" placeholder="Escribe el contenido de tu nota aquí..." 
+                      class="w-full h-32 p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"></textarea>
+            <button id="add-note-btn" 
+                    class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                Añadir Nota
+            </button>
+        </div>
+
+        <!-- CONTENEDOR DE NOTAS -->
+        <h2 id="section-title" class="text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Notas Privadas</h2>
+        <div id="notes-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Las notas se cargarán aquí -->
+            <p id="loading-notes" class="text-center text-gray-500 col-span-full">Cargando notas...</p>
+        </div>
+        
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN (Reemplazo de alert/confirm) -->
+    <div id="modal-container" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-card rounded-lg shadow-xl max-w-sm w-full p-6 transform transition-all scale-100 opacity-100">
+            <h3 id="modal-title" class="text-xl font-semibold mb-4 text-indigo-600 dark:text-indigo-400">Confirmación</h3>
+            <p id="modal-message" class="text-gray-700 dark:text-gray-300 mb-6">¿Estás seguro de que deseas eliminar esta nota?</p>
+            <div class="flex justify-end space-x-3">
+                <button id="modal-cancel-btn" class="py-2 px-4 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                    Cancelar
+                </button>
+                <button id="modal-confirm-btn" class="py-2 px-4 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors">
+                    Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- SCRIPTS DE FIREBASE Y LÓGICA DE LA APP -->
+    <script type="module">
+        // Importar funciones de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            query, 
+            onSnapshot, 
+            deleteDoc, 
+            doc,
+            Timestamp,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Configuración Global (Inyectada por el entorno) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, auth, db;
+        let userId = null;
+        let currentView = 'private'; // 'private' o 'collab'
+        let currentNotesCache = []; // Cache para la búsqueda
+        
+        let unsubscribePrivate = () => {};
+        let unsubscribeCollab = () => {};
+
+        // --- Referencias al DOM ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const sunIcon = document.getElementById('sun-icon');
+        const moonIcon = document.getElementById('moon-icon');
+        const tabPrivate = document.getElementById('tab-private');
+        const tabCollab = document.getElementById('tab-collab');
+        const noteTitleInput = document.getElementById('note-title');
+        const noteContentInput = document.getElementById('note-content');
+        const addNoteBtn = document.getElementById('add-note-btn');
+        const notesContainer = document.getElementById('notes-container');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const loadingNotes = document.getElementById('loading-notes');
+        const searchInput = document.getElementById('search-input');
+        const sectionTitle = document.getElementById('section-title');
+
+        // Modal de confirmación (reemplazo de alert/confirm)
+        const modalContainer = document.getElementById('modal-container');
+        const modalMessage = document.getElementById('modal-message');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+        // --- Lógica del Tema (Oscuro/Claro) ---
+        function setIconVisibility() {
+            if (document.documentElement.classList.contains('dark')) {
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            setIconVisibility();
+        }
+
+        themeToggle.addEventListener('click', toggleTheme);
+        setIconVisibility(); 
+
+        // --- Lógica de Pestañas ---
+        function switchView(view) {
+            if (currentView === view) return;
+
+            currentView = view;
+            
+            // Actualizar botones de pestañas
+            const selectedClass = 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400';
+            const unselectedClass = 'text-gray-500 dark:text-gray-400 border-transparent';
+
+            if (view === 'private') {
+                tabPrivate.className = `flex-1 py-3 px-4 font-semibold border-b-2 ${selectedClass} transition-colors`;
+                tabCollab.className = `flex-1 py-3 px-4 font-semibold border-b-2 ${unselectedClass} transition-colors`;
+                sectionTitle.textContent = 'Notas Privadas';
+            } else {
+                tabCollab.className = `flex-1 py-3 px-4 font-semibold border-b-2 ${selectedClass} transition-colors`;
+                tabPrivate.className = `flex-1 py-3 px-4 font-semibold border-b-2 ${unselectedClass} transition-colors`;
+                sectionTitle.textContent = 'Notas Colaborativas (Foro)';
+            }
+            
+            searchInput.value = ''; // Limpiar búsqueda al cambiar de pestaña
+            attachFirestoreListeners(); 
+        }
+
+        tabPrivate.addEventListener('click', () => switchView('private'));
+        tabCollab.addEventListener('click', () => switchView('collab'));
+
+        // --- Renderizado de Notas (HTML) ---
+        
+        function getNoteCardHTML(note) {
+            const isOwnNote = note.authorId === userId;
+            const authorText = note.authorId ? 
+                `<p class="text-xs ${isOwnNote ? 'text-indigo-500 font-semibold' : 'text-gray-500 dark:text-gray-400'} mb-2">
+                    ${isOwnNote ? 'Tú' : `Autor: ${note.authorId.substring(0, 8)}...`}
+                </p>` : '';
+            
+            const deleteBtn = `<button data-id="${note.id}" data-type="delete" class="text-red-500 hover:text-red-600 dark:hover:text-red-400 text-xs font-medium transition-colors">Eliminar</button>`;
+            
+            // Simulación de reacción (solo visual/estático por simplicidad)
+            const reactionCount = note.likes || 0;
+            const reactionBtn = `<button data-id="${note.id}" data-type="like" class="text-blue-500 hover:text-blue-600 text-xs font-medium transition-colors disabled:opacity-50" ${currentView === 'private' ? 'disabled' : ''}>
+                                    👍 ${reactionCount}
+                                </button>`;
+
+            return `
+                <div class="note-card bg-card p-5 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col justify-between" data-note-id="${note.id}">
+                    <div>
+                        ${authorText}
+                        ${note.title ? `<h3 class="text-lg font-bold mb-2 text-gray-800 dark:text-gray-100">${note.title}</h3>` : ''}
+                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${note.content}</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <span class="text-xs text-gray-400">${new Date(note.createdAt.seconds * 1000).toLocaleDateString()}</span>
+                        <div class="flex space-x-3 items-center">
+                            ${currentView === 'collab' ? reactionBtn : ''}
+                            ${isOwnNote || currentView === 'private' ? deleteBtn : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNotes(notes) {
+            // Aplicar el filtro de búsqueda antes de renderizar
+            const query = searchInput.value.toLowerCase();
+            const filteredNotes = notes.filter(note => {
+                const title = note.title ? note.title.toLowerCase() : '';
+                const content = note.content ? note.content.toLowerCase() : '';
+                return title.includes(query) || content.includes(query);
+            });
+
+            currentNotesCache = notes; // Almacenar el caché sin filtrar para futuras búsquedas
+
+            notesContainer.innerHTML = '';
+            
+            if (filteredNotes.length === 0) {
+                notesContainer.innerHTML = `<p class="text-center text-gray-500 col-span-full">${query ? 'No se encontraron notas con el criterio de búsqueda.' : 'No hay notas en esta sección todavía.'}</p>`;
+                return;
+            }
+            
+            // Ordenar: más nuevas primero
+            filteredNotes.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+
+            filteredNotes.forEach(note => {
+                const noteEl = document.createElement('div');
+                noteEl.innerHTML = getNoteCardHTML(note);
+                notesContainer.appendChild(noteEl.firstChild);
+            });
+        }
+        
+        // Listener de búsqueda (filtro en tiempo real)
+        searchInput.addEventListener('input', () => renderNotes(currentNotesCache));
+
+
+        // --- Lógica de Firestore ---
+        
+        async function handleAddNote() {
+            const title = noteTitleInput.value.trim();
+            const content = noteContentInput.value.trim();
+            if (!content || !userId) return;
+
+            addNoteBtn.disabled = true;
+            addNoteBtn.textContent = 'Añadiendo...';
+
+            try {
+                let collectionPath = '';
+                let noteData = {
+                    title: title,
+                    content: content,
+                    createdAt: Timestamp.now()
+                };
+
+                if (currentView === 'private') {
+                    collectionPath = `artifacts/${appId}/users/${userId}/private_notes`;
+                } else {
+                    collectionPath = `artifacts/${appId}/public/data/collab_notes`;
+                    noteData.authorId = userId;
+                    noteData.likes = 0; // Inicializar reacciones
+                }
+
+                await addDoc(collection(db, collectionPath), noteData);
+                noteTitleInput.value = '';
+                noteContentInput.value = '';
+
+            } catch (error) {
+                console.error("Error al añadir la nota: ", error);
+            } finally {
+                addNoteBtn.disabled = false;
+                addNoteBtn.textContent = 'Añadir Nota';
+            }
+        }
+
+        async function handleLikeNote(noteId) {
+             if (currentView !== 'collab') return;
+
+             try {
+                const docRef = doc(db, `artifacts/${appId}/public/data/collab_notes/${noteId}`);
+                // Simple incremento (no previene likes duplicados por usuario, pero es funcional)
+                const noteToUpdate = currentNotesCache.find(n => n.id === noteId);
+                if (noteToUpdate) {
+                    const newLikes = (noteToUpdate.likes || 0) + 1;
+                    await updateDoc(docRef, { likes: newLikes });
+                }
+             } catch (error) {
+                 console.error("Error al dar 'me gusta': ", error);
+             }
+        }
+
+
+        let noteToDeleteId = null;
+        async function confirmDelete(noteId) {
+            noteToDeleteId = noteId;
+            modalMessage.textContent = '¿Estás seguro de que deseas eliminar esta nota? Esta acción no se puede deshacer.';
+            modalContainer.classList.remove('hidden');
+        }
+
+        modalCancelBtn.addEventListener('click', () => {
+            modalContainer.classList.add('hidden');
+            noteToDeleteId = null;
+        });
+
+        modalConfirmBtn.addEventListener('click', async () => {
+            if (!noteToDeleteId || !userId) return;
+
+            try {
+                let docPath = '';
+                if (currentView === 'private') {
+                    docPath = `artifacts/${appId}/users/${userId}/private_notes/${noteToDeleteId}`;
+                } else {
+                    const note = currentNotesCache.find(n => n.id === noteToDeleteId);
+                    // Solo permite borrar la propia nota en el foro
+                    if (note && note.authorId !== userId) {
+                        console.warn("No puedes borrar la nota de otro usuario.");
+                        return; 
+                    }
+                    docPath = `artifacts/${appId}/public/data/collab_notes/${noteToDeleteId}`;
+                }
+                
+                await deleteDoc(doc(db, docPath));
+            } catch (error) {
+                console.error("Error al borrar la nota: ", error);
+            } finally {
+                modalContainer.classList.add('hidden');
+                noteToDeleteId = null;
+            }
+        });
+        
+        // Delegación de eventos para botones
+        notesContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            const noteId = target.getAttribute('data-id');
+            const type = target.getAttribute('data-type');
+
+            if (type === 'delete') {
+                confirmDelete(noteId);
+            } else if (type === 'like') {
+                handleLikeNote(noteId);
+            }
+        });
+
+
+        // --- Listeners de Inicialización y Auth ---
+        
+        function attachFirestoreListeners() {
+            if (!db || !userId) return;
+
+            // Limpiar listeners anteriores
+            unsubscribePrivate();
+            unsubscribeCollab();
+            
+            loadingNotes.style.display = 'block';
+            notesContainer.innerHTML = '';
+            
+            const collectionPath = currentView === 'private' 
+                ? `artifacts/${appId}/users/${userId}/private_notes`
+                : `artifacts/${appId}/public/data/collab_notes`;
+            
+            const q = query(collection(db, collectionPath));
+            
+            const listener = onSnapshot(q, (snapshot) => {
+                const notes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                loadingNotes.style.display = 'none';
+                renderNotes(notes);
+            }, (error) => {
+                console.error("Error en listener de Firestore: ", error);
+                loadingNotes.textContent = 'Error al cargar notas.';
+            });
+            
+            if (currentView === 'private') {
+                unsubscribePrivate = listener;
+            } else {
+                unsubscribeCollab = listener;
+            }
+        }
+        
+        async function initialize() {
+            if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
+                try {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    setLogLevel('debug'); // Ver logs en consola
+
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            userIdDisplay.textContent = userId;
+                            addNoteBtn.addEventListener('click', handleAddNote);
+                            attachFirestoreListeners();
+                        } else {
+                            try {
+                                if (initialAuthToken) {
+                                    await signInWithCustomToken(auth, initialAuthToken);
+                                } else {
+                                    await signInAnonymously(auth);
+                                }
+                            } catch (authError) {
+                                console.error("Error de autenticación: ", authError);
+                                userIdDisplay.textContent = 'Error de autenticación';
+                            }
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Error al inicializar Firebase: ", error);
+                    notesContainer.innerHTML = '<p class="text-center text-red-500 col-span-full">Error al conectar con la base de datos.</p>';
+                    loadingNotes.style.display = 'none';
+                }
+            } else {
+                console.error("Configuración de Firebase no encontrada.");
+                notesContainer.innerHTML = '<p class="text-center text-red-500 col-span-full">Error de configuración. La app no puede iniciarse.</p>';
+                loadingNotes.style.display = 'none';
+            }
+        }
+
+        // Iniciar la aplicación
+        initialize();
+    </script>
+
+</body>
+</html>
